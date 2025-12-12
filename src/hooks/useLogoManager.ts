@@ -1,0 +1,130 @@
+'use client'
+
+import { useState, useCallback } from 'react'
+import type { LogoFile } from '@/types/logo-resizer'
+import { validateFile, generateId, loadImage, MAX_FILE_SIZE, MAX_FILES } from '@/lib/imageUtils'
+
+interface UseLogoManagerReturn {
+  logos: LogoFile[]
+  addFiles: (files: File[]) => Promise<void>
+  removeLogo: (id: string) => void
+  clearAll: () => void
+  updateLogo: (id: string, updates: Partial<LogoFile>) => void
+  updateLogoWithBlob: (id: string, blob: Blob) => Promise<void>
+}
+
+export function useLogoManager(): UseLogoManagerReturn {
+  const [logos, setLogos] = useState<LogoFile[]>([])
+
+  const addFiles = useCallback(async (files: File[]) => {
+    const remainingSlots = MAX_FILES - logos.length
+    const filesToProcess = files.slice(0, remainingSlots)
+
+    const newLogos: LogoFile[] = []
+
+    for (const file of filesToProcess) {
+      const validation = validateFile(file)
+
+      if (!validation.valid) {
+        newLogos.push({
+          id: generateId(),
+          file,
+          name: file.name,
+          originalWidth: 0,
+          originalHeight: 0,
+          previewUrl: '',
+          status: 'error',
+          error: validation.error,
+        })
+        continue
+      }
+
+      const logoFile: LogoFile = {
+        id: generateId(),
+        file,
+        name: file.name,
+        originalWidth: 0,
+        originalHeight: 0,
+        previewUrl: URL.createObjectURL(file),
+        status: 'loading',
+      }
+
+      try {
+        const img = await loadImage(file)
+        logoFile.originalWidth = img.naturalWidth
+        logoFile.originalHeight = img.naturalHeight
+        logoFile.status = 'ready'
+      } catch {
+        logoFile.status = 'error'
+        logoFile.error = '画像の読み込みに失敗しました'
+      }
+
+      newLogos.push(logoFile)
+    }
+
+    setLogos((prev) => [...prev, ...newLogos])
+  }, [logos.length])
+
+  const removeLogo = useCallback((id: string) => {
+    setLogos((prev) => {
+      const logo = prev.find((l) => l.id === id)
+      if (logo?.previewUrl) {
+        URL.revokeObjectURL(logo.previewUrl)
+      }
+      return prev.filter((l) => l.id !== id)
+    })
+  }, [])
+
+  const clearAll = useCallback(() => {
+    setLogos((prev) => {
+      prev.forEach((logo) => {
+        if (logo.previewUrl) {
+          URL.revokeObjectURL(logo.previewUrl)
+        }
+      })
+      return []
+    })
+  }, [])
+
+  const updateLogo = useCallback((id: string, updates: Partial<LogoFile>) => {
+    setLogos((prev) =>
+      prev.map((logo) =>
+        logo.id === id ? { ...logo, ...updates } : logo
+      )
+    )
+  }, [])
+
+  const updateLogoWithBlob = useCallback(async (id: string, blob: Blob) => {
+    const file = new File([blob], 'cropped.png', { type: blob.type })
+    const img = await loadImage(file)
+    const previewUrl = URL.createObjectURL(blob)
+
+    setLogos((prev) =>
+      prev.map((logo) => {
+        if (logo.id === id) {
+          if (logo.previewUrl) {
+            URL.revokeObjectURL(logo.previewUrl)
+          }
+          return {
+            ...logo,
+            file,
+            originalWidth: img.naturalWidth,
+            originalHeight: img.naturalHeight,
+            previewUrl,
+            status: 'ready',
+          }
+        }
+        return logo
+      })
+    )
+  }, [])
+
+  return {
+    logos,
+    addFiles,
+    removeLogo,
+    clearAll,
+    updateLogo,
+    updateLogoWithBlob,
+  }
+}

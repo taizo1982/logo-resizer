@@ -45,10 +45,10 @@ export function isPsdFile(file: File): boolean {
 
 export async function pdfToImageBlob(file: File, scale: number = 2): Promise<Blob> {
   // 動的インポートでクライアントサイドのみで読み込み
-  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const pdfjsLib = await import('pdfjs-dist')
 
-  // Workerを無効化（メインスレッドで処理）
-  pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+  // unpkg CDNからWorkerを読み込み
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise

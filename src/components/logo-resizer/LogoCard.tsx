@@ -64,10 +64,11 @@ export function LogoCard({ logo, onRemove, onDownload, onCrop, showProcessed = f
           {onCrop && !showProcessed && (
             <button
               onClick={() => onCrop(logo)}
-              className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white transition-colors text-xs"
               title="トリミング"
             >
-              <Crop size={16} weight="light" />
+              <Crop size={14} weight="light" />
+              <span>トリミング</span>
             </button>
           )}
           {onDownload && isProcessedLogo(logo) && logo.outputBlob && (

@@ -12,10 +12,12 @@ interface LogoGridProps {
   onRemove: (id: string) => void
   onDownload?: (logo: ProcessedLogo) => void
   onCrop?: (logo: LogoFile) => void
+  onMoveLeft?: (id: string) => void
+  onMoveRight?: (id: string) => void
   showProcessed?: boolean
 }
 
-export function LogoGrid({ logos, onRemove, onDownload, onCrop, showProcessed = false }: LogoGridProps) {
+export function LogoGrid({ logos, onRemove, onDownload, onCrop, onMoveLeft, onMoveRight, showProcessed = false }: LogoGridProps) {
   const [showHint, setShowHint] = useState(false)
 
   useEffect(() => {
@@ -57,14 +59,18 @@ export function LogoGrid({ logos, onRemove, onDownload, onCrop, showProcessed = 
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-        {logos.map((logo) => (
+        {logos.map((logo, index) => (
           <LogoCard
             key={logo.id}
             logo={logo}
             onRemove={onRemove}
             onDownload={onDownload}
             onCrop={onCrop}
+            onMoveLeft={onMoveLeft}
+            onMoveRight={onMoveRight}
             showProcessed={showProcessed}
+            isFirst={index === 0}
+            isLast={index === logos.length - 1}
           />
         ))}
       </div>

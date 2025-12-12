@@ -23,7 +23,7 @@ export function LogoResizer() {
   const [previewSettings, setPreviewSettings] = useState<PreviewSettings>(DEFAULT_PREVIEW)
   const [cropTarget, setCropTarget] = useState<LogoFile | null>(null)
 
-  const { logos, addFiles, removeLogo, clearAll: clearLogos, updateLogoWithBlob } = useLogoManager()
+  const { logos, addFiles, removeLogo, clearAll: clearLogos, updateLogoWithBlob, moveLogo } = useLogoManager()
   const { processedLogos, processAll, isProcessing, progress, clearProcessed, reorderLogos } = useImageProcessor()
   const { downloadOne, downloadAll, downloadAsZip, isDownloading } = useDownload()
 
@@ -76,6 +76,16 @@ export function LogoResizer() {
   const handleCropClose = useCallback(() => {
     setCropTarget(null)
   }, [])
+
+  const handleMoveLeft = useCallback((id: string) => {
+    moveLogo(id, 'left')
+    clearProcessed()
+  }, [moveLogo, clearProcessed])
+
+  const handleMoveRight = useCallback((id: string) => {
+    moveLogo(id, 'right')
+    clearProcessed()
+  }, [moveLogo, clearProcessed])
 
   const readyCount = logos.filter((l) => l.status === 'ready').length
   const hasReadyLogos = readyCount > 0
@@ -160,6 +170,8 @@ export function LogoResizer() {
               onRemove={handleRemoveLogo}
               onDownload={hasProcessedLogos ? handleDownloadSingle : undefined}
               onCrop={!hasProcessedLogos ? handleCropStart : undefined}
+              onMoveLeft={!hasProcessedLogos ? handleMoveLeft : undefined}
+              onMoveRight={!hasProcessedLogos ? handleMoveRight : undefined}
               showProcessed={hasProcessedLogos}
             />
           </div>

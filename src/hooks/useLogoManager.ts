@@ -11,6 +11,7 @@ interface UseLogoManagerReturn {
   clearAll: () => void
   updateLogo: (id: string, updates: Partial<LogoFile>) => void
   updateLogoWithBlob: (id: string, blob: Blob) => Promise<void>
+  moveLogo: (id: string, direction: 'left' | 'right') => void
 }
 
 export function useLogoManager(): UseLogoManagerReturn {
@@ -119,6 +120,21 @@ export function useLogoManager(): UseLogoManagerReturn {
     )
   }, [])
 
+  const moveLogo = useCallback((id: string, direction: 'left' | 'right') => {
+    setLogos((prev) => {
+      const index = prev.findIndex((l) => l.id === id)
+      if (index === -1) return prev
+
+      const newIndex = direction === 'left' ? index - 1 : index + 1
+      if (newIndex < 0 || newIndex >= prev.length) return prev
+
+      const newLogos = [...prev]
+      const [removed] = newLogos.splice(index, 1)
+      newLogos.splice(newIndex, 0, removed)
+      return newLogos
+    })
+  }, [])
+
   return {
     logos,
     addFiles,
@@ -126,5 +142,6 @@ export function useLogoManager(): UseLogoManagerReturn {
     clearAll,
     updateLogo,
     updateLogoWithBlob,
+    moveLogo,
   }
 }

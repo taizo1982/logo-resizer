@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import type { LogoFile } from '@/types/logo-resizer'
-import { validateFile, generateId, loadImage, MAX_FILE_SIZE, MAX_FILES } from '@/lib/imageUtils'
+import { validateFile, generateId, loadImage, isPdfFile, isAiFile, isPsdFile, pdfToImageBlob, psdToImageBlob, MAX_FILE_SIZE, MAX_FILES } from '@/lib/imageUtils'
 
 interface UseLogoManagerReturn {
   logos: LogoFile[]
@@ -40,18 +40,60 @@ export function useLogoManager(): UseLogoManagerReturn {
         continue
       }
 
+      // PDF/AI/PSDの場合は画像に変換
+      let processedFile = file
+      let previewBlob: Blob | null = null
+
+      if (isPdfFile(file) || isAiFile(file)) {
+        try {
+          previewBlob = await pdfToImageBlob(file)
+          const newName = file.name.replace(/\.(pdf|ai)$/i, '.png')
+          processedFile = new File([previewBlob], newName, { type: 'image/png' })
+        } catch {
+          newLogos.push({
+            id: generateId(),
+            file,
+            name: file.name,
+            originalWidth: 0,
+            originalHeight: 0,
+            previewUrl: '',
+            status: 'error',
+            error: isAiFile(file) ? 'AIファイルの変換に失敗しました' : 'PDFの変換に失敗しました',
+          })
+          continue
+        }
+      } else if (isPsdFile(file)) {
+        try {
+          previewBlob = await psdToImageBlob(file)
+          const newName = file.name.replace(/\.psd$/i, '.png')
+          processedFile = new File([previewBlob], newName, { type: 'image/png' })
+        } catch {
+          newLogos.push({
+            id: generateId(),
+            file,
+            name: file.name,
+            originalWidth: 0,
+            originalHeight: 0,
+            previewUrl: '',
+            status: 'error',
+            error: 'PSDファイルの変換に失敗しました',
+          })
+          continue
+        }
+      }
+
       const logoFile: LogoFile = {
         id: generateId(),
-        file,
+        file: processedFile,
         name: file.name,
         originalWidth: 0,
         originalHeight: 0,
-        previewUrl: URL.createObjectURL(file),
+        previewUrl: URL.createObjectURL(previewBlob || processedFile),
         status: 'loading',
       }
 
       try {
-        const img = await loadImage(file)
+        const img = await loadImage(processedFile)
         logoFile.originalWidth = img.naturalWidth
         logoFile.originalHeight = img.naturalHeight
         logoFile.status = 'ready'

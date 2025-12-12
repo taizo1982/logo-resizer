@@ -2,18 +2,106 @@ import type { BackgroundType, OutputSettings } from '@/types/logo-resizer'
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 export const MAX_FILES = 50
-export const VALID_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp', 'image/gif', 'image/bmp']
+export const VALID_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp', 'image/gif', 'image/bmp']
+export const VALID_PDF_TYPE = 'application/pdf'
+export const VALID_AI_TYPES = ['application/postscript', 'application/illustrator']
+export const VALID_PSD_TYPES = ['image/vnd.adobe.photoshop', 'application/x-photoshop', 'application/photoshop']
+export const VALID_TYPES = [...VALID_IMAGE_TYPES, VALID_PDF_TYPE, ...VALID_AI_TYPES, ...VALID_PSD_TYPES]
+
+function getFileExtension(filename: string): string {
+  return filename.toLowerCase().split('.').pop() || ''
+}
 
 export function validateFile(file: File): { valid: boolean; error?: string } {
   if (file.size > MAX_FILE_SIZE) {
     return { valid: false, error: 'ファイルサイズが10MBを超えています' }
   }
 
-  if (!VALID_TYPES.includes(file.type)) {
+  const ext = getFileExtension(file.name)
+  const validExtensions = ['png', 'jpg', 'jpeg', 'svg', 'webp', 'gif', 'bmp', 'pdf', 'ai', 'psd']
+
+  // MIMEタイプまたは拡張子でチェック
+  if (!VALID_TYPES.includes(file.type) && !validExtensions.includes(ext)) {
     return { valid: false, error: 'サポートされていない形式です' }
   }
 
   return { valid: true }
+}
+
+export function isPdfFile(file: File): boolean {
+  const ext = getFileExtension(file.name)
+  return file.type === VALID_PDF_TYPE || ext === 'pdf'
+}
+
+export function isAiFile(file: File): boolean {
+  const ext = getFileExtension(file.name)
+  return VALID_AI_TYPES.includes(file.type) || ext === 'ai'
+}
+
+export function isPsdFile(file: File): boolean {
+  const ext = getFileExtension(file.name)
+  return VALID_PSD_TYPES.includes(file.type) || ext === 'psd'
+}
+
+export async function pdfToImageBlob(file: File, scale: number = 2): Promise<Blob> {
+  // 動的インポートでクライアントサイドのみで読み込み
+  const pdfjsLib = await import('pdfjs-dist')
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const page = await pdf.getPage(1)
+
+  const viewport = page.getViewport({ scale })
+  const canvas = document.createElement('canvas')
+  canvas.width = viewport.width
+  canvas.height = viewport.height
+
+  const ctx = canvas.getContext('2d')!
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await page.render({
+    canvasContext: ctx,
+    viewport,
+    canvas,
+  } as any).promise
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob)
+      } else {
+        reject(new Error('PDF変換に失敗しました'))
+      }
+    }, 'image/png')
+  })
+}
+
+export async function psdToImageBlob(file: File): Promise<Blob> {
+  // 動的インポートでクライアントサイドのみで読み込み
+  const Psd = (await import('@webtoon/psd')).default
+
+  const arrayBuffer = await file.arrayBuffer()
+  const psd = Psd.parse(arrayBuffer)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = psd.width
+  canvas.height = psd.height
+
+  const ctx = canvas.getContext('2d')!
+  const compositeData = await psd.composite()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const imageData = new ImageData(compositeData as any, psd.width, psd.height)
+  ctx.putImageData(imageData, 0, 0)
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob)
+      } else {
+        reject(new Error('PSD変換に失敗しました'))
+      }
+    }, 'image/png')
+  })
 }
 
 export function generateId(): string {

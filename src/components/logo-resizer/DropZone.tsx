@@ -82,7 +82,7 @@ export function DropZone({ onFilesAdded, disabled = false, currentCount = 0 }: D
       <input
         ref={inputRef}
         type="file"
-        accept={VALID_TYPES.join(',')}
+        accept={[...VALID_TYPES, '.ai', '.psd'].join(',')}
         multiple
         onChange={handleFileChange}
         className="hidden"
@@ -101,7 +101,7 @@ export function DropZone({ onFilesAdded, disabled = false, currentCount = 0 }: D
       <p className="text-zinc-400 text-sm mb-4">または クリックして選択</p>
 
       <div className="text-zinc-500 text-xs space-y-1">
-        <p>対応形式: PNG, JPG, SVG, WebP, GIF, BMP</p>
+        <p>対応形式: PNG, JPG, SVG, WebP, GIF, BMP, PDF, AI, PSD</p>
         <p>
           最大 {Math.round(MAX_FILE_SIZE / 1024 / 1024)}MB / ファイル
           {remainingSlots < MAX_FILES && (

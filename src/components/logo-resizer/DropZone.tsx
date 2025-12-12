@@ -4,6 +4,13 @@ import { useState, useCallback, useRef } from 'react'
 import { CloudArrowUp } from '@phosphor-icons/react'
 import { MAX_FILE_SIZE, MAX_FILES, VALID_TYPES } from '@/lib/imageUtils'
 
+const VALID_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'webp', 'gif', 'bmp', 'pdf', 'ai', 'psd']
+
+function isValidFile(file: File): boolean {
+  const ext = file.name.toLowerCase().split('.').pop() || ''
+  return VALID_TYPES.includes(file.type) || VALID_EXTENSIONS.includes(ext)
+}
+
 interface DropZoneProps {
   onFilesAdded: (files: File[]) => void
   disabled?: boolean
@@ -33,9 +40,7 @@ export function DropZone({ onFilesAdded, disabled = false, currentCount = 0 }: D
 
       if (disabled) return
 
-      const files = Array.from(e.dataTransfer.files).filter((file) =>
-        VALID_TYPES.includes(file.type)
-      )
+      const files = Array.from(e.dataTransfer.files).filter(isValidFile)
 
       if (files.length > 0) {
         onFilesAdded(files)
@@ -82,7 +87,7 @@ export function DropZone({ onFilesAdded, disabled = false, currentCount = 0 }: D
       <input
         ref={inputRef}
         type="file"
-        accept={[...VALID_TYPES, '.ai', '.psd'].join(',')}
+        accept={[...VALID_TYPES, '.pdf', '.ai', '.psd'].join(',')}
         multiple
         onChange={handleFileChange}
         className="hidden"

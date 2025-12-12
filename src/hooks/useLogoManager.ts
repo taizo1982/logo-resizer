@@ -46,10 +46,13 @@ export function useLogoManager(): UseLogoManagerReturn {
 
       if (isPdfFile(file) || isAiFile(file)) {
         try {
+          console.log('Processing PDF/AI file:', file.name, file.type)
           previewBlob = await pdfToImageBlob(file)
+          console.log('PDF/AI conversion successful')
           const newName = file.name.replace(/\.(pdf|ai)$/i, '.png')
           processedFile = new File([previewBlob], newName, { type: 'image/png' })
-        } catch {
+        } catch (err) {
+          console.error('PDF/AI conversion failed:', err)
           newLogos.push({
             id: generateId(),
             file,

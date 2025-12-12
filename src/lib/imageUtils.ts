@@ -44,37 +44,52 @@ export function isPsdFile(file: File): boolean {
 }
 
 export async function pdfToImageBlob(file: File, scale: number = 2): Promise<Blob> {
-  // 動的インポートでクライアントサイドのみで読み込み
-  const pdfjsLib = await import('pdfjs-dist')
+  try {
+    // 動的インポートでクライアントサイドのみで読み込み
+    const pdfjsLib = await import('pdfjs-dist')
+    console.log('PDF.js version:', pdfjsLib.version)
 
-  // unpkg CDNからWorkerを読み込み
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+    // unpkg CDNからWorkerを読み込み
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
-  const arrayBuffer = await file.arrayBuffer()
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-  const page = await pdf.getPage(1)
+    const arrayBuffer = await file.arrayBuffer()
+    console.log('PDF arrayBuffer size:', arrayBuffer.byteLength)
 
-  const viewport = page.getViewport({ scale })
-  const canvas = document.createElement('canvas')
-  canvas.width = viewport.width
-  canvas.height = viewport.height
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
+    const pdf = await loadingTask.promise
+    console.log('PDF loaded, pages:', pdf.numPages)
 
-  const ctx = canvas.getContext('2d')!
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await page.render({
-    canvasContext: ctx,
-    viewport,
-  } as any).promise
+    const page = await pdf.getPage(1)
+    console.log('Page loaded')
 
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) {
-        resolve(blob)
-      } else {
-        reject(new Error('PDF変換に失敗しました'))
-      }
-    }, 'image/png')
-  })
+    const viewport = page.getViewport({ scale })
+    const canvas = document.createElement('canvas')
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    console.log('Canvas size:', canvas.width, 'x', canvas.height)
+
+    const ctx = canvas.getContext('2d')!
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await page.render({
+      canvasContext: ctx,
+      viewport,
+    } as any).promise
+    console.log('Render complete')
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          console.log('Blob created:', blob.size)
+          resolve(blob)
+        } else {
+          reject(new Error('PDF変換に失敗しました: Blob生成失敗'))
+        }
+      }, 'image/png')
+    })
+  } catch (error) {
+    console.error('PDF変換エラー:', error)
+    throw error
+  }
 }
 
 export async function psdToImageBlob(file: File): Promise<Blob> {

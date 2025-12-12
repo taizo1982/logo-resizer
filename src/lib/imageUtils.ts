@@ -45,8 +45,10 @@ export function isPsdFile(file: File): boolean {
 
 export async function pdfToImageBlob(file: File, scale: number = 2): Promise<Blob> {
   // 動的インポートでクライアントサイドのみで読み込み
-  const pdfjsLib = await import('pdfjs-dist')
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+
+  // Workerを無効化（メインスレッドで処理）
+  pdfjsLib.GlobalWorkerOptions.workerSrc = ''
 
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
@@ -62,7 +64,6 @@ export async function pdfToImageBlob(file: File, scale: number = 2): Promise<Blo
   await page.render({
     canvasContext: ctx,
     viewport,
-    canvas,
   } as any).promise
 
   return new Promise((resolve, reject) => {

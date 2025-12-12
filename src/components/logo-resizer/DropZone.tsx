@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from 'react'
 import { CloudArrowUp } from '@phosphor-icons/react'
 import { MAX_FILE_SIZE, MAX_FILES, VALID_TYPES } from '@/lib/imageUtils'
 
-const VALID_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'webp', 'gif', 'bmp', 'pdf', 'ai', 'psd']
+const VALID_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'webp', 'gif', 'bmp', 'pdf', 'ai', 'psd', 'docx', 'xlsx', 'pptx', 'doc', 'xls', 'ppt', 'eps']
 
 function isValidFile(file: File): boolean {
   const ext = file.name.toLowerCase().split('.').pop() || ''
@@ -87,7 +87,7 @@ export function DropZone({ onFilesAdded, disabled = false, currentCount = 0 }: D
       <input
         ref={inputRef}
         type="file"
-        accept={[...VALID_TYPES, '.pdf', '.ai', '.psd'].join(',')}
+        accept={[...VALID_TYPES, '.pdf', '.ai', '.psd', '.docx', '.xlsx', '.pptx', '.doc', '.xls', '.ppt', '.eps'].join(',')}
         multiple
         onChange={handleFileChange}
         className="hidden"
@@ -106,7 +106,7 @@ export function DropZone({ onFilesAdded, disabled = false, currentCount = 0 }: D
       <p className="text-zinc-400 text-sm mb-4">または クリックして選択</p>
 
       <div className="text-zinc-500 text-xs space-y-1">
-        <p>対応形式: PNG, JPG, SVG, WebP, GIF, BMP, PDF, AI, PSD</p>
+        <p>対応形式: PNG, JPG, SVG, WebP, PDF, AI, PSD, EPS, Word, Excel, PowerPoint</p>
         <p>
           最大 {Math.round(MAX_FILE_SIZE / 1024 / 1024)}MB / ファイル
           {remainingSlots < MAX_FILES && (

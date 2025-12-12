@@ -8,6 +8,8 @@ interface UseImageProcessorReturn {
   processedLogos: ProcessedLogo[]
   processSingle: (logo: LogoFile, settings: OutputSettings) => Promise<ProcessedLogo>
   processAll: (logos: LogoFile[], settings: OutputSettings) => Promise<ProcessedLogo[]>
+  processAndAdd: (logos: LogoFile[], settings: OutputSettings) => Promise<void>
+  removeProcessed: (id: string) => void
   isProcessing: boolean
   progress: { current: number; total: number }
   clearProcessed: () => void
@@ -82,6 +84,55 @@ export function useImageProcessor(): UseImageProcessorReturn {
     [processSingle]
   )
 
+  const processAndAdd = useCallback(
+    async (logos: LogoFile[], settings: OutputSettings): Promise<void> => {
+      setIsProcessing(true)
+      setProgress({ current: 0, total: logos.length })
+
+      const newResults: ProcessedLogo[] = []
+
+      for (let i = 0; i < logos.length; i++) {
+        const logo = logos[i]
+
+        if (logo.status === 'error') {
+          newResults.push({
+            ...logo,
+            outputCanvas: document.createElement('canvas'),
+          })
+          continue
+        }
+
+        try {
+          const processed = await processSingle(logo, settings)
+          newResults.push(processed)
+        } catch (error) {
+          newResults.push({
+            ...logo,
+            status: 'error',
+            error: error instanceof Error ? error.message : '処理に失敗しました',
+            outputCanvas: document.createElement('canvas'),
+          })
+        }
+
+        setProgress({ current: i + 1, total: logos.length })
+      }
+
+      setProcessedLogos((prev) => [...prev, ...newResults])
+      setIsProcessing(false)
+    },
+    [processSingle]
+  )
+
+  const removeProcessed = useCallback((id: string) => {
+    setProcessedLogos((prev) => {
+      const logo = prev.find((l) => l.id === id)
+      if (logo?.outputUrl) {
+        URL.revokeObjectURL(logo.outputUrl)
+      }
+      return prev.filter((l) => l.id !== id)
+    })
+  }, [])
+
   const clearProcessed = useCallback(() => {
     setProcessedLogos((prev) => {
       prev.forEach((logo) => {
@@ -107,6 +158,8 @@ export function useImageProcessor(): UseImageProcessorReturn {
     processedLogos,
     processSingle,
     processAll,
+    processAndAdd,
+    removeProcessed,
     isProcessing,
     progress,
     clearProcessed,

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import type { LogoFile } from '@/types/logo-resizer'
-import { validateFile, generateId, loadImage, isPdfFile, isAiFile, isPsdFile, pdfToImageBlob, psdToImageBlob, MAX_FILE_SIZE, MAX_FILES } from '@/lib/imageUtils'
+import { validateFile, generateId, loadImage, isPdfFile, isAiFile, isPsdFile, isOfficeFile, isEpsFile, pdfToImageBlob, psdToImageBlob, officeToImageBlob, MAX_FILE_SIZE, MAX_FILES } from '@/lib/imageUtils'
 
 interface UseLogoManagerReturn {
   logos: LogoFile[]
@@ -46,13 +46,10 @@ export function useLogoManager(): UseLogoManagerReturn {
 
       if (isPdfFile(file) || isAiFile(file)) {
         try {
-          console.log('Processing PDF/AI file:', file.name, file.type)
           previewBlob = await pdfToImageBlob(file)
-          console.log('PDF/AI conversion successful')
           const newName = file.name.replace(/\.(pdf|ai)$/i, '.png')
           processedFile = new File([previewBlob], newName, { type: 'image/png' })
-        } catch (err) {
-          console.error('PDF/AI conversion failed:', err)
+        } catch {
           newLogos.push({
             id: generateId(),
             file,
@@ -80,6 +77,43 @@ export function useLogoManager(): UseLogoManagerReturn {
             previewUrl: '',
             status: 'error',
             error: 'PSDファイルの変換に失敗しました',
+          })
+          continue
+        }
+      } else if (isOfficeFile(file)) {
+        try {
+          previewBlob = await officeToImageBlob(file)
+          const newName = file.name.replace(/\.(docx?|xlsx?|pptx?)$/i, '.png')
+          processedFile = new File([previewBlob], newName, { type: 'image/png' })
+        } catch {
+          newLogos.push({
+            id: generateId(),
+            file,
+            name: file.name,
+            originalWidth: 0,
+            originalHeight: 0,
+            previewUrl: '',
+            status: 'error',
+            error: 'Officeファイルから画像を抽出できませんでした',
+          })
+          continue
+        }
+      } else if (isEpsFile(file)) {
+        // EPSはPDF.jsで処理（AIと同様）
+        try {
+          previewBlob = await pdfToImageBlob(file)
+          const newName = file.name.replace(/\.eps$/i, '.png')
+          processedFile = new File([previewBlob], newName, { type: 'image/png' })
+        } catch {
+          newLogos.push({
+            id: generateId(),
+            file,
+            name: file.name,
+            originalWidth: 0,
+            originalHeight: 0,
+            previewUrl: '',
+            status: 'error',
+            error: 'EPSファイルの変換に失敗しました',
           })
           continue
         }

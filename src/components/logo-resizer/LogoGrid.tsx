@@ -11,9 +11,10 @@ interface LogoGridProps {
   onMoveLeft?: (id: string) => void
   onMoveRight?: (id: string) => void
   showProcessed?: boolean
+  title?: string
 }
 
-export function LogoGrid({ logos, onRemove, onDownload, onCrop, onMoveLeft, onMoveRight, showProcessed = false }: LogoGridProps) {
+export function LogoGrid({ logos, onRemove, onDownload, onCrop, onMoveLeft, onMoveRight, showProcessed = false, title = 'アップロード済み' }: LogoGridProps) {
   if (logos.length === 0) {
     return null
   }
@@ -21,7 +22,7 @@ export function LogoGrid({ logos, onRemove, onDownload, onCrop, onMoveLeft, onMo
   return (
     <div className="space-y-3">
       <h3 className="text-white font-medium">
-        アップロード済み ({logos.length})
+        {title} ({logos.length})
       </h3>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">

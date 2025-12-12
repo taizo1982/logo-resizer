@@ -6,7 +6,16 @@ export const VALID_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml', 'i
 export const VALID_PDF_TYPE = 'application/pdf'
 export const VALID_AI_TYPES = ['application/postscript', 'application/illustrator']
 export const VALID_PSD_TYPES = ['image/vnd.adobe.photoshop', 'application/x-photoshop', 'application/photoshop']
-export const VALID_TYPES = [...VALID_IMAGE_TYPES, VALID_PDF_TYPE, ...VALID_AI_TYPES, ...VALID_PSD_TYPES]
+export const VALID_OFFICE_TYPES = [
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation', // pptx
+  'application/msword', // doc
+  'application/vnd.ms-excel', // xls
+  'application/vnd.ms-powerpoint', // ppt
+]
+export const VALID_EPS_TYPES = ['application/eps', 'application/postscript', 'image/eps', 'image/x-eps']
+export const VALID_TYPES = [...VALID_IMAGE_TYPES, VALID_PDF_TYPE, ...VALID_AI_TYPES, ...VALID_PSD_TYPES, ...VALID_OFFICE_TYPES, ...VALID_EPS_TYPES]
 
 function getFileExtension(filename: string): string {
   return filename.toLowerCase().split('.').pop() || ''
@@ -18,7 +27,7 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
   }
 
   const ext = getFileExtension(file.name)
-  const validExtensions = ['png', 'jpg', 'jpeg', 'svg', 'webp', 'gif', 'bmp', 'pdf', 'ai', 'psd']
+  const validExtensions = ['png', 'jpg', 'jpeg', 'svg', 'webp', 'gif', 'bmp', 'pdf', 'ai', 'psd', 'docx', 'xlsx', 'pptx', 'doc', 'xls', 'ppt', 'eps']
 
   // MIMEタイプまたは拡張子でチェック
   if (!VALID_TYPES.includes(file.type) && !validExtensions.includes(ext)) {
@@ -43,53 +52,45 @@ export function isPsdFile(file: File): boolean {
   return VALID_PSD_TYPES.includes(file.type) || ext === 'psd'
 }
 
+export function isOfficeFile(file: File): boolean {
+  const ext = getFileExtension(file.name)
+  return VALID_OFFICE_TYPES.includes(file.type) || ['docx', 'xlsx', 'pptx', 'doc', 'xls', 'ppt'].includes(ext)
+}
+
+export function isEpsFile(file: File): boolean {
+  const ext = getFileExtension(file.name)
+  return VALID_EPS_TYPES.includes(file.type) || ext === 'eps'
+}
+
 export async function pdfToImageBlob(file: File, scale: number = 2): Promise<Blob> {
-  try {
-    // 動的インポートでクライアントサイドのみで読み込み
-    const pdfjsLib = await import('pdfjs-dist')
-    console.log('PDF.js version:', pdfjsLib.version)
+  const pdfjsLib = await import('pdfjs-dist')
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
-    // unpkg CDNからWorkerを読み込み
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const page = await pdf.getPage(1)
 
-    const arrayBuffer = await file.arrayBuffer()
-    console.log('PDF arrayBuffer size:', arrayBuffer.byteLength)
+  const viewport = page.getViewport({ scale })
+  const canvas = document.createElement('canvas')
+  canvas.width = viewport.width
+  canvas.height = viewport.height
 
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
-    const pdf = await loadingTask.promise
-    console.log('PDF loaded, pages:', pdf.numPages)
+  const ctx = canvas.getContext('2d')!
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await page.render({
+    canvasContext: ctx,
+    viewport,
+  } as any).promise
 
-    const page = await pdf.getPage(1)
-    console.log('Page loaded')
-
-    const viewport = page.getViewport({ scale })
-    const canvas = document.createElement('canvas')
-    canvas.width = viewport.width
-    canvas.height = viewport.height
-    console.log('Canvas size:', canvas.width, 'x', canvas.height)
-
-    const ctx = canvas.getContext('2d')!
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await page.render({
-      canvasContext: ctx,
-      viewport,
-    } as any).promise
-    console.log('Render complete')
-
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (blob) {
-          console.log('Blob created:', blob.size)
-          resolve(blob)
-        } else {
-          reject(new Error('PDF変換に失敗しました: Blob生成失敗'))
-        }
-      }, 'image/png')
-    })
-  } catch (error) {
-    console.error('PDF変換エラー:', error)
-    throw error
-  }
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob)
+      } else {
+        reject(new Error('PDF変換に失敗しました'))
+      }
+    }, 'image/png')
+  })
 }
 
 export async function psdToImageBlob(file: File): Promise<Blob> {
@@ -118,6 +119,59 @@ export async function psdToImageBlob(file: File): Promise<Blob> {
       }
     }, 'image/png')
   })
+}
+
+export async function officeToImageBlob(file: File): Promise<Blob> {
+  // JSZipでOfficeファイル（ZIPアーカイブ）からサムネイルを抽出
+  const JSZip = (await import('jszip')).default
+
+  const arrayBuffer = await file.arrayBuffer()
+  const zip = await JSZip.loadAsync(arrayBuffer)
+
+  // サムネイルの可能性のあるパス
+  const thumbnailPaths = [
+    'docProps/thumbnail.jpeg',
+    'docProps/thumbnail.png',
+    'docProps/thumbnail.jpg',
+    '_rels/.rels', // PowerPointの場合、スライドから画像を探す
+  ]
+
+  for (const path of thumbnailPaths) {
+    const thumbnailFile = zip.file(path)
+    if (thumbnailFile && !path.endsWith('.rels')) {
+      const blob = await thumbnailFile.async('blob')
+      return blob
+    }
+  }
+
+  // PowerPointの場合、最初のスライドの画像を探す
+  const ext = file.name.toLowerCase().split('.').pop()
+  if (ext === 'pptx') {
+    // スライドの画像を探す
+    const mediaFiles = Object.keys(zip.files).filter(name =>
+      name.startsWith('ppt/media/') && /\.(png|jpg|jpeg|gif)$/i.test(name)
+    )
+    if (mediaFiles.length > 0) {
+      const imageFile = zip.file(mediaFiles[0])
+      if (imageFile) {
+        return await imageFile.async('blob')
+      }
+    }
+  }
+
+  // Word/Excelの場合も埋め込み画像を探す
+  const mediaFiles = Object.keys(zip.files).filter(name =>
+    (name.startsWith('word/media/') || name.startsWith('xl/media/')) &&
+    /\.(png|jpg|jpeg|gif)$/i.test(name)
+  )
+  if (mediaFiles.length > 0) {
+    const imageFile = zip.file(mediaFiles[0])
+    if (imageFile) {
+      return await imageFile.async('blob')
+    }
+  }
+
+  throw new Error('Officeファイルから画像を抽出できませんでした')
 }
 
 export function generateId(): string {

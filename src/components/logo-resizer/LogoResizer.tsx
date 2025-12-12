@@ -24,8 +24,10 @@ export function LogoResizer() {
   const [cropTarget, setCropTarget] = useState<LogoFile | null>(null)
 
   const { logos, addFiles, removeLogo, clearAll: clearLogos, updateLogoWithBlob, moveLogo } = useLogoManager()
-  const { processedLogos, processAll, isProcessing, progress, clearProcessed, reorderLogos } = useImageProcessor()
+  const { processedLogos, processAll, removeProcessed, isProcessing, progress, clearProcessed, reorderLogos } = useImageProcessor()
   const { downloadOne, downloadAll, downloadAsZip, isDownloading } = useDownload()
+
+  const hasProcessedLogos = processedLogos.filter((l) => l.outputBlob).length > 0
 
   const handleStartProcess = useCallback(async () => {
     const readyLogos = logos.filter((l) => l.status === 'ready')
@@ -42,9 +44,24 @@ export function LogoResizer() {
   const handleRemoveLogo = useCallback(
     (id: string) => {
       removeLogo(id)
+      if (hasProcessedLogos) {
+        removeProcessed(id)
+      }
     },
-    [removeLogo]
+    [removeLogo, removeProcessed, hasProcessedLogos]
   )
+
+  // ファイル追加
+  const handleFilesAdded = useCallback(
+    async (files: File[]) => {
+      await addFiles(files)
+    },
+    [addFiles]
+  )
+
+  // 未処理のロゴ（processedLogosに含まれないもの）
+  const processedIds = new Set(processedLogos.map((l) => l.id))
+  const unprocessedLogos = logos.filter((l) => !processedIds.has(l.id) && l.status === 'ready')
 
   const handleDownloadSingle = useCallback(
     (logo: ProcessedLogo) => {
@@ -89,7 +106,6 @@ export function LogoResizer() {
 
   const readyCount = logos.filter((l) => l.status === 'ready').length
   const hasReadyLogos = readyCount > 0
-  const hasProcessedLogos = processedLogos.filter((l) => l.outputBlob).length > 0
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -128,7 +144,7 @@ export function LogoResizer() {
         {activeTab === 'edit' && (
           <div className="space-y-6">
             <DropZone
-              onFilesAdded={addFiles}
+              onFilesAdded={handleFilesAdded}
               currentCount={logos.length}
             />
 
@@ -165,15 +181,42 @@ export function LogoResizer() {
               </div>
             )}
 
-            <LogoGrid
-              logos={hasProcessedLogos ? processedLogos : logos}
-              onRemove={handleRemoveLogo}
-              onDownload={hasProcessedLogos ? handleDownloadSingle : undefined}
-              onCrop={!hasProcessedLogos ? handleCropStart : undefined}
-              onMoveLeft={!hasProcessedLogos ? handleMoveLeft : undefined}
-              onMoveRight={!hasProcessedLogos ? handleMoveRight : undefined}
-              showProcessed={hasProcessedLogos}
-            />
+            {/* 処理済み */}
+            {hasProcessedLogos && (
+              <LogoGrid
+                logos={processedLogos}
+                onRemove={handleRemoveLogo}
+                onDownload={handleDownloadSingle}
+                showProcessed={true}
+                title="処理済み"
+              />
+            )}
+
+            {/* 未処理 */}
+            {unprocessedLogos.length > 0 && (
+              <LogoGrid
+                logos={unprocessedLogos}
+                onRemove={handleRemoveLogo}
+                onCrop={handleCropStart}
+                onMoveLeft={handleMoveLeft}
+                onMoveRight={handleMoveRight}
+                showProcessed={false}
+                title="未処理"
+              />
+            )}
+
+            {/* 処理前の初期表示 */}
+            {!hasProcessedLogos && unprocessedLogos.length === 0 && logos.length > 0 && (
+              <LogoGrid
+                logos={logos}
+                onRemove={handleRemoveLogo}
+                onCrop={handleCropStart}
+                onMoveLeft={handleMoveLeft}
+                onMoveRight={handleMoveRight}
+                showProcessed={false}
+                title="アップロード済み"
+              />
+            )}
           </div>
         )}
 
